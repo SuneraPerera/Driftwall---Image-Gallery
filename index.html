@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Driftwall – endless image gallery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e8ebef;--surface:#f7f8fa;--ink:#1a2130;--mut:#5c6679;--line:#cfd5de;--acc:#2f4bd8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12151b;--surface:#1b2029;--ink:#e6e9ef;--mut:#8d97aa;--line:#2a303c;--acc:#8ea2ff}}
+:root[data-theme="dark"]{--bg:#12151b;--surface:#1b2029;--ink:#e6e9ef;--mut:#8d97aa;--line:#2a303c;--acc:#8ea2ff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 "Instrument Sans",system-ui,sans-serif}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:12px clamp(12px,3vw,32px) 10px;display:grid;gap:10px}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+h1{font:700 26px/1 "Bricolage Grotesque",system-ui,sans-serif;margin:0;letter-spacing:-.02em}
+#count{color:var(--mut);font-size:13px}
+.search{display:flex;gap:8px}
+input[type=search]{flex:1;min-width:0;font:inherit;padding:11px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.chip{flex:none;border:1px solid var(--line);background:transparent;border-radius:99px;padding:5px 13px;font-size:14px}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.opts{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;font-size:13px;color:var(--mut)}
+.sw{display:flex;gap:5px}
+.sw button{width:22px;height:22px;border-radius:50%;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);padding:0}
+.sw button[aria-pressed=true]{border-color:var(--ink)}
+select,.btn{font:inherit;font-size:13px;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+label{display:flex;align-items:center;gap:6px}
+input[type=range]{width:90px;accent-color:var(--acc)}
+main{padding:clamp(10px,2vw,24px) clamp(12px,3vw,32px)}
+#grid{display:flex;gap:12px;align-items:flex-start}
+.col{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px}
+.card{position:relative;display:block;width:100%;padding:0;border:0;border-radius:10px;overflow:hidden;background:var(--surface)}
+.card img{display:block;width:100%;height:100%;object-fit:cover}
+.card span{position:absolute;left:0;right:0;bottom:0;padding:22px 10px 8px;font-size:13px;color:#fff;text-align:left;background:linear-gradient(transparent,rgba(0,0,0,.6));opacity:0;transition:opacity .15s}
+.card:hover span,.card:focus-visible span{opacity:1}
+#empty{text-align:center;color:var(--mut);padding:60px 0}
+#sentinel{height:60px;text-align:center;color:var(--mut);font-size:13px;padding-top:18px}
+dialog{border:0;border-radius:14px;padding:0;background:var(--surface);color:var(--ink);width:min(92vw,820px);max-height:92vh;overflow:auto}
+dialog::backdrop{background:rgba(8,10,16,.7)}
+dialog img{display:block;width:100%;max-height:68vh;object-fit:contain;background:#0001}
+.info{padding:14px 18px 18px;display:grid;gap:10px}
+.info h2{margin:0;font:700 20px "Bricolage Grotesque",sans-serif}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tags button{border:1px solid var(--line);background:transparent;border-radius:99px;padding:3px 11px;font-size:13px}
+.tags button:hover{background:var(--ink);color:var(--bg)}
+.close{justify-self:end}
+</style>
+</head>
+<body>
+<header>
+  <div class="top"><h1>Driftwall</h1><span id="count" aria-live="polite"></span></div>
+  <div class="search"><input id="q" type="search" placeholder="Search images: ocean, glow, quiet, blue, portrait…" list="tagl" aria-label="Search images" autocomplete="off"><datalist id="tagl"></datalist></div>
+  <div class="chips" id="chips" role="group" aria-label="Category"></div>
+  <div class="opts">
+    <div class="sw" id="sw" role="group" aria-label="Color"></div>
+    <label>Shape <select id="shape"><option value="">Any</option><option>landscape</option><option>portrait</option><option>square</option></select></label>
+    <label>Columns <input id="cols" type="range" min="1" max="6" value="4"></label>
+    <button class="btn" id="shuffle">Shuffle</button>
+    <button class="btn" id="reset">Clear filters</button>
+  </div>
+</header>
+<main>
+  <div id="grid"></div>
+  <div id="empty" hidden>No images match. Try fewer words, or clear the filters.</div>
+  <div id="sentinel">Loading more…</div>
+</main>
+<dialog id="lb"><img id="lbi" alt=""><div class="info"><h2 id="lbt"></h2><div class="tags" id="lbg"></div><button class="btn close" id="lbx">Close</button></div></dialog>
+<script>
+const P=[['red',['#3a0f2e','#d6455d','#ffd27a','#8c2a4b','#240a22']],['orange',['#4a2511','#f08a3c','#fff0b0','#b5522a','#2a130a']],['yellow',['#5a4a12','#f2cf4e','#fffbe0','#b8962c','#2e260a']],['green',['#0f3b33','#4fb286','#e8ffd0','#1f7a5c','#08241e']],['teal',['#0a2a4a','#3aa0c9','#d8f6ff','#1c6a94','#06182b']],['blue',['#121a52','#5a6df0','#e0e4ff','#3345b8','#0a0e30']],['purple',['#2a1252','#9a5cf0','#f1dcff','#6a33b8','#160a30']],['pink',['#4a1240','#f06cb8','#ffe0f1','#b83380','#2a0a24']],['gray',['#1c1f26','#8a93a6','#f2f4f8','#4a5262','#0c0e12']]];
+const ADJ=['quiet','golden','drifting','hollow','electric','slow','distant','velvet','ember','misty','silent','bright'];
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const g=(id,a,b)=>`<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;
+const bg=(w,h,id)=>`<rect width="${w}" height="${h}" fill="url(#${id})"/>`;
+function ridge(r,w,h,y,a,col,op=1,sharp=0){const f1=.004+r()*.012,f2=.015+r()*.02,p1=r()*9,p2=r()*9;let d=`M0,${h}`;for(let x=0;x<=w+10;x+=10){let s=Math.sin(x*f1+p1)+.5*Math.sin(x*f2+p2);if(sharp)s=1-Math.abs(s)*1.2;d+=`L${x},${(y-s*a).toFixed(1)}`}return `<path d="${d}L${w},${h}Z" fill="${col}" opacity="${op}"/>`}
+function stars(r,w,h,n,col){let s='';for(let i=0;i<n;i++)s+=`<circle cx="${(r()*w).toFixed(0)}" cy="${(r()*h*.8).toFixed(0)}" r="${(.4+r()*1.2).toFixed(1)}" fill="${col}" opacity="${(.3+r()*.7).toFixed(2)}"/>`;return s}
+function trees(r,w,h,y,sz,col,op){let s=`<rect y="${y}" width="${w}" height="${h-y}" fill="${col}" opacity="${op}"/>`;for(let x=-sz;x<w+sz;x+=sz*(.5+r()*.5)){const t=sz*(.8+r()*.8);s+=`<path d="M${x-t*.3},${y}L${x},${y-t*1.6}L${x+t*.3},${y}Z" fill="${col}" opacity="${op}"/>`}return s}
+const T=[
+{id:'sunset',x:['sun','sky','evening','warm'],fn:(r,c,w,h)=>`<defs>${g('s',c[0],c[1])}</defs>${bg(w,h,'s')}<circle cx="${w*(.25+r()*.5)}" cy="${h*(.45+r()*.12)}" r="${w*(.1+r()*.08)}" fill="${c[2]}"/>`+ridge(r,w,h,h*.68,h*.06,c[3],.9)+ridge(r,w,h,h*.8,h*.05,c[4],.85)+ridge(r,w,h,h*.92,h*.04,c[4])},
+{id:'ocean',x:['sea','waves','water','coast'],fn:(r,c,w,h)=>{let s=`<defs>${g('s',c[0],c[1])}</defs>${bg(w,h,'s')}<circle cx="${w*(.2+r()*.6)}" cy="${h*.28}" r="${w*.07}" fill="${c[2]}"/>`;for(let k=0;k<7;k++)s+=ridge(r,w,h,h*(.5+k*.08),h*.03,k%2?c[3]:c[1],.55+k*.07);return s+ridge(r,w,h,h*1.02,h*.02,c[4])}},
+{id:'forest',x:['trees','woods','nature','pine'],fn:(r,c,w,h)=>`<defs>${g('s',c[1],c[2])}</defs>${bg(w,h,'s')}`+ridge(r,w,h,h*.5,h*.1,c[3],.5)+trees(r,w,h,h*.64,w*.07,c[3],.8)+trees(r,w,h,h*.8,w*.09,c[0],.9)+trees(r,w,h,h*.95,w*.12,c[4],1)},
+{id:'mountains',x:['peaks','alpine','range','hiking'],fn:(r,c,w,h)=>{let s=`<defs>${g('s',c[0],c[1])}</defs>${bg(w,h,'s')}<circle cx="${w*(.2+r()*.6)}" cy="${h*.22}" r="${w*.06}" fill="${c[2]}"/>`;[[.5,.14,c[3],.5],[.62,.12,c[3],.8],[.74,.1,c[0],.9],[.88,.08,c[4],1]].forEach(m=>s+=ridge(r,w,h,h*m[0],h*m[1],m[2],m[3],1));return s}},
+{id:'neon',x:['rings','glow','retro','night','synthwave'],fn:(r,c,w,h)=>{let s=`<defs><filter id="gl" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><rect width="${w}" height="${h}" fill="${c[4]}"/><g filter="url(#gl)" fill="none" stroke-width="2.5">`;const cx=w*(.35+r()*.3),cy=h*.5;for(let k=0;k<7;k++)s+=`<circle cx="${cx}" cy="${cy}" r="${(k+1)*w*.065}" stroke="${c[1+k%3]}"/>`;for(let k=0;k<10;k++){const y=h*.72+k*k*h*.004;if(y<h)s+=`<line x1="0" x2="${w}" y1="${y}" y2="${y}" stroke="${c[3]}"/>`}return s+'</g>'}},
+{id:'space',x:['planet','stars','galaxy','cosmos'],fn:(r,c,w,h)=>{const cx=w*(.35+r()*.3),cy=h*(.4+r()*.2),R=w*(.15+r()*.1);return `<defs><radialGradient id="b" cx=".5" cy=".4" r=".8"><stop offset="0" stop-color="${c[0]}"/><stop offset="1" stop-color="${c[4]}"/></radialGradient><radialGradient id="p" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="${c[2]}"/><stop offset=".5" stop-color="${c[1]}"/><stop offset="1" stop-color="${c[3]}"/></radialGradient></defs><rect width="${w}" height="${h}" fill="url(#b)"/>`+stars(r,w,h*1.2,70,c[2])+`<circle cx="${cx}" cy="${cy}" r="${R}" fill="url(#p)"/><ellipse cx="${cx}" cy="${cy}" rx="${R*1.8}" ry="${R*.45}" fill="none" stroke="${c[2]}" stroke-width="${R*.07}" opacity=".7" transform="rotate(-20 ${cx} ${cy})"/><circle cx="${w*(.7+r()*.2)}" cy="${h*(.12+r()*.1)}" r="${w*.025}" fill="${c[1]}"/>`}},
+{id:'desert',x:['dunes','sand','dry','sun'],fn:(r,c,w,h)=>`<defs>${g('s',c[1],c[2])}</defs>${bg(w,h,'s')}<circle cx="${w*(.25+r()*.5)}" cy="${h*.4}" r="${w*.09}" fill="#fff" opacity=".85"/>`+ridge(r,w,h,h*.6,h*.06,c[3],.9)+ridge(r,w,h,h*.76,h*.07,c[0],.95)+ridge(r,w,h,h*.92,h*.05,c[4])},
+{id:'geometric',x:['shapes','pattern','grid','abstract'],fn:(r,c,w,h)=>{const n=3+(r()*3|0),s=w/n,rows=Math.ceil(h/s),cl=[c[0],c[1],c[3],c[4]];let o=`<rect width="${w}" height="${h}" fill="${c[2]}"/>`;for(let i=0;i<n;i++)for(let j=0;j<rows;j++){const x=i*s,y=j*s,f=cl[r()*4|0],t=r()*4|0,rot=(r()*4|0)*90;if(t==0)o+=`<circle cx="${x+s/2}" cy="${y+s/2}" r="${s*.42}" fill="${f}"/>`;else if(t==1)o+=`<path d="M${x},${y}h${s}A${s},${s} 0 0 1 ${x},${y+s}z" fill="${f}" transform="rotate(${rot} ${x+s/2} ${y+s/2})"/>`;else if(t==2)o+=`<rect x="${x}" y="${y+s/2}" width="${s}" height="${s/2}" fill="${f}" transform="rotate(${rot} ${x+s/2} ${y+s/2})"/>`}return o}},
+{id:'aurora',x:['northern lights','night','sky','polar'],fn:(r,c,w,h)=>{let s=`<defs>${g('s',c[4],c[0])}<filter id="bl" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="${w*.02}"/></filter></defs>${bg(w,h,'s')}`+stars(r,w,h,40,c[2]);for(let k=0;k<4;k++){const f=.006+r()*.01,p=r()*9;let d='';for(let x=0;x<=w;x+=20)d+=(x?'L':'M')+x+','+(h*(.28+k*.08)+Math.sin(x*f+p)*h*.07).toFixed(1);s+=`<path d="${d}" fill="none" stroke="${c[1+k%3]}" stroke-width="${h*.07}" stroke-linecap="round" opacity=".7" filter="url(#bl)"/>`}return s+ridge(r,w,h,h*.92,h*.05,c[4],1,1)}}
+];
+const DIM={landscape:[400,300],portrait:[300,420],square:[360,360]};
+const S={q:'',theme:'',color:'',shape:'',base:0,cursor:0,items:[],end:false,cols:4};
+function meta(i){const r=rng((i+1)*7919+S.base*104729),th=T[r()*T.length|0],pal=P[r()*P.length|0],v=r(),shape=v<.4?'landscape':v<.75?'portrait':'square',adj=ADJ[r()*ADJ.length|0],d=DIM[shape];
+return{i,th,pal,shape,adj,w:d[0],h:d[1],title:adj[0].toUpperCase()+adj.slice(1)+' '+th.id,tags:[th.id,...th.x,adj,pal[0],shape],hay:[th.id,...th.x,adj,pal[0],shape].join(' ')}}
+function svg(m){const r=rng(m.i*31+S.base*977+5);return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${m.w} ${m.h}" width="${m.w}" height="${m.h}">${m.th.fn(r,m.pal[1],m.w,m.h)}</svg>`}
+const uri=m=>'data:image/svg+xml;utf8,'+encodeURIComponent(svg(m));
+const $=id=>document.getElementById(id);
+let cols=[];
+function build(){const gr=$('grid');gr.innerHTML='';cols=[];for(let k=0;k<S.cols;k++){const d=document.createElement('div');d.className='col';gr.appendChild(d);cols.push({el:d,h:0})}}
+function place(m){let c=cols[0];cols.forEach(x=>{if(x.h<c.h)c=x});const b=document.createElement('button');b.className='card';b.style.aspectRatio=m.w+'/'+m.h;b.innerHTML=`<img alt="${m.title}, ${m.pal[0]} ${m.shape}" decoding="async" src="${uri(m)}"><span>${m.title}</span>`;b.onclick=()=>openLb(m);c.el.appendChild(b);c.h+=m.h/m.w}
+function ok(m){if(S.theme&&m.th.id!==S.theme)return false;if(S.color&&m.pal[0]!==S.color)return false;if(S.shape&&m.shape!==S.shape)return false;const t=S.q.toLowerCase().split(/\s+/).filter(Boolean);return t.every(x=>m.hay.includes(x))}
+function load(n=20){if(S.end)return;let f=0,sc=0;while(f<n&&sc<3000){const m=meta(S.cursor++);sc++;if(!ok(m))continue;S.items.push(m);place(m);f++}
+if(!f)S.end=true;const none=!S.items.length;$('empty').hidden=!none;$('sentinel').style.visibility=S.end?'hidden':'visible';$('count').textContent=none?'':S.items.length+' images, and counting'}
+function reset(){S.items=[];S.cursor=0;S.end=false;build();load(24);ob.unobserve($('sentinel'));ob.observe($('sentinel'))}
+const ob=new IntersectionObserver(e=>{if(e[0].isIntersecting){load(16);ob.unobserve($('sentinel'));if(!S.end)requestAnimationFrame(()=>ob.observe($('sentinel')))}},{rootMargin:'900px'});
+// controls
+const chips=$('chips');
+[['','All'],...T.map(t=>[t.id,t.id[0].toUpperCase()+t.id.slice(1)])].forEach(([id,l])=>{const b=document.createElement('button');b.className='chip';b.textContent=l;b.dataset.id=id;b.setAttribute('aria-pressed',id===''?'true':'false');b.onclick=()=>{S.theme=id;sync();reset()};chips.appendChild(b)});
+P.forEach(p=>{const b=document.createElement('button');b.style.background=`linear-gradient(135deg,${p[1][2]},${p[1][1]} 55%,${p[1][3]})`;b.title=p[0];b.setAttribute('aria-label',p[0]);b.dataset.id=p[0];b.setAttribute('aria-pressed','false');b.onclick=()=>{S.color=S.color===p[0]?'':p[0];sync();reset()};$('sw').appendChild(b)});
+const all=new Set();T.forEach(t=>{all.add(t.id);t.x.forEach(x=>all.add(x))});ADJ.forEach(a=>all.add(a));P.forEach(p=>all.add(p[0]));Object.keys(DIM).forEach(s=>all.add(s));
+$('tagl').innerHTML=[...all].map(t=>`<option value="${t}">`).join('');
+function sync(){chips.querySelectorAll('.chip').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.id===S.theme)));$('sw').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.id===S.color)));$('shape').value=S.shape;$('q').value=S.q}
+let tm;$('q').oninput=e=>{clearTimeout(tm);tm=setTimeout(()=>{S.q=e.target.value.trim();reset()},180)};
+$('shape').onchange=e=>{S.shape=e.target.value;reset()};
+$('cols').oninput=e=>{S.cols=+e.target.value;const it=S.items.slice();build();it.forEach(place)};
+$('shuffle').onclick=()=>{S.base=1+(Math.random()*1e6|0);reset();scrollTo({top:0})};
+$('reset').onclick=()=>{S.q=S.theme=S.color=S.shape='';sync();reset()};
+// lightbox
+const lb=$('lb');
+function openLb(m){$('lbi').src=uri(m);$('lbi').alt=m.title;$('lbt').textContent=m.title;const t=$('lbg');t.innerHTML='';m.tags.forEach(x=>{const b=document.createElement('button');b.textContent=x;b.onclick=()=>{S.q=x;S.theme=S.color=S.shape='';sync();lb.close();reset();scrollTo({top:0})};t.appendChild(b)});lb.showModal()}
+$('lbx').onclick=()=>lb.close();lb.onclick=e=>{if(e.target===lb)lb.close()};
+// init
+S.cols=innerWidth<520?2:innerWidth<900?3:4;$('cols').value=S.cols;
+reset();
+</script>
+</body>
+</html>
